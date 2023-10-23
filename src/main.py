@@ -4,18 +4,12 @@ from tkinter.messagebox import showinfo
 import pyttsx3
 import os
 
-"""
-
-3) Settings (Speed,default mp3 title, m/f voice)
-
-
-"""
 class App(tk.Tk):
     def __init__(self):
         super().__init__()  # required for rendering Tkinter window
 
         self.title('Text to MP3')
-        self.geometry('700x650')
+        self.geometry('830x680')
 
         container = tk.Frame(self)
         container.pack(side = "top", fill = "both", expand = True)
@@ -32,26 +26,13 @@ class App(tk.Tk):
             'female_voice': tk.BooleanVar(value=False),
         }
 
-
-        # initializing frames to an empty array
         self.frames = {}
-	
-		# iterating through a tuple consisting
-		# of the different page layouts
-        for F in (Main, Settings):
-
-            frame = F(container, self)
-
-            # initializing frame of that object from
-            # startpage, page1, page2 respectively with
-            # for loop
-            self.frames[F] = frame
-
-            frame.grid(row = 0, column = 0, sticky ="nsew")
-
+        frame = Main(container, self)
+        self.frames[Main] = frame
+        frame.grid(row = 0, column = 0, sticky ="nsew")
         self.show_frame(Main)
 
-	#Go to any frame
+	#Go to frame
     def show_frame(self, cont):
         frame = self.frames[cont]
         frame.tkraise()
@@ -65,60 +46,105 @@ class Main(tk.Frame):
 
         self.controller = controller
         self.engine = pyttsx3.init()
+        self.voices = self.engine.getProperty('voices')
         self.file_name = tk.StringVar()
         
         self.__create_widgets()
-        self.change_on_hover(self.save_button, "Save MP3")
-        
+        self.change_on_hover(self.save_button, "Save MP3", False)
+        self.change_on_hover(self.female_voice_checkbutton, "Female voice", True)
+        self.rate_entry.bind("<<ComboboxSelected>>", self.update_rate)
 
 
 
-    def change_on_hover(self, element, name):
-        element.bind("<Enter>", func=lambda event, name=name: self.say(name))
+    def change_on_hover(self, element, name, female):
+        element.bind("<Enter>", func=lambda event, name=name: self.say(name, female))
     
-    def say(self, saying):
+    def say(self, saying, female):
+
+        if female:
+            self.engine.setProperty('voice', self.voices[1].id)
+
         self.engine.say(saying)
         self.engine.runAndWait()
         self.engine.stop()
 
+        if self.controller.settings["female_voice"].get() == True:
+            self.engine.setProperty('voice', self.voices[1].id)
+        else:
+            self.engine.setProperty('voice', self.voices[0].id)
+
     
     def __create_widgets(self):
-    
 
         self.text_widget = tk.Text(
             self,
             wrap=tk.WORD,  # Wrap text at word boundaries
-            height=37,
-            width=100,     
-            font=('calibre', 10, 'normal'),
+            height=18,
+            width=55,     
+            font=('calibre', 20, 'normal'),
         )
         
-        self.text_widget.grid(row=0, column=0,columnspan=2)
+        self.text_widget.grid(row=0, column=0,columnspan=3)
+
+
+        ttk.Label(
+            self,
+            text="File Name:",
+            font=('calibre', 30, 'bold')
+        ).grid(row=1, column=0)
 
 
         self.file_name_entry = ttk.Entry(
             self,
             textvariable=self.file_name,
-            width=80,
-            font=('calibre', 10, 'normal')
+            width=20,
+            font=('calibre', 30, 'normal')
         )
         
-        self.file_name_entry.grid(row=1, column=0)
+        self.file_name_entry.grid(row=1, column=1)
 
 
         self.save_button = ttk.Button(
             self,
             text='Save',
-            command=self._text_to_speech,
+            command=self._text_to_speech
         )
-        self.save_button.grid(row=1, column=1, padx=(0, 0), ipadx=15, ipady=14)
+        self.save_button.grid(row=1, column=2, padx=(0, 0), ipadx=15, ipady=14)
 
-        self.settings_button = ttk.Button(
+        # Create input fields or widgets to modify settings
+        ttk.Label(
             self,
-            text='Settings',
-            command=lambda: self.controller.show_frame(Settings)
-        )
-        self.settings_button.grid(row=2, column=0, padx=(0, 0))
+            text="Text Speed",
+            font=('calibre', 30, 'bold')
+        ).grid(row=2, column=0)
+
+
+        self.rate_entry = ttk.Combobox(self, values=['Slow', 'Normal', 'Fast'], font=('calibre', 20, 'normal'), width=28)
+
+        self.rate_entry.set("Normal")
+        self.rate_entry.state(['readonly'])
+
+        self.female_voice_checkbutton = ttk.Checkbutton(self, text='Female Voice', variable=self.controller.settings['female_voice'])
+
+        # Add these widgets to the layout
+        self.rate_entry.grid(row=2, column=1)
+        self.female_voice_checkbutton.grid(row=2, column=2)
+
+    def update_rate(self, event):
+        rate_speeds = {
+            "Slow" : 100,
+            "Normal" : 210,
+            "Fast" : 280
+        }
+
+        selected_speed = self.rate_entry.get()
+        self.controller.settings['rate'].set(rate_speeds[selected_speed])
+
+        if self.controller.settings["female_voice"].get() == True:
+            self.say(selected_speed, True)
+        else:
+            self.say(selected_speed, False)
+
     
 
     def _text_to_speech(self):
@@ -134,11 +160,11 @@ class Main(tk.Frame):
         
 
         # Male / Female voice
-        voices = self.engine.getProperty('voices')
+        
         if self.controller.settings["female_voice"].get() == True:
-            self.engine.setProperty('voice', voices[1].id)
+            self.engine.setProperty('voice', self.voices[1].id)
         else:
-            self.engine.setProperty('voice', voices[0].id)
+            self.engine.setProperty('voice', self.voices[0].id)
 
         # Get rest of settings
         self.engine.setProperty('rate', int(self.controller.settings["rate"].get()))
@@ -149,39 +175,14 @@ class Main(tk.Frame):
         self.text_widget.delete("1.0","end")
         self.file_name_entry.delete(0,'end')
 
-        self.say(f"Success, saved to {file_path}")
+        if self.controller.settings["female_voice"].get() == True:
+            self.say(f"Success, saved to {file_path}", True)
+        else:
+            self.say(f"Success, saved to {file_path}", False)
 
-
-class Settings(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-
-        self.__create_widgets()
-
-    def __create_widgets(self):
-
-        # Create input fields or widgets to modify settings
-        rate_entry = ttk.Entry(self, textvariable=self.controller.settings['rate'])
-        #title_entry = ttk.Entry(self, textvariable=self.controller.settings['default_title'])
-        female_voice_checkbutton = ttk.Checkbutton(self, text='Female Voice', variable=self.controller.settings['female_voice'])
-
-        # Add these widgets to the layout
-        rate_entry.grid(row=0, column=1)
-        #title_entry.grid(row=1, column=1)
-        female_voice_checkbutton.grid(row=2, column=1)
-
-        self.home_button = ttk.Button(
-            self,
-            text='Home',
-            command=lambda: self.controller.show_frame(Main)
-        )
-        self.home_button.grid(row=2, column=0, padx=(0, 0))
-
-        
 
 
 if __name__ == "__main__":
     app = App()
-    #app.resizable(False,False)
+    app.resizable(False,False)
     app.mainloop()
