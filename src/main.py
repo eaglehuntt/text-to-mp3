@@ -4,12 +4,13 @@ from tkinter.messagebox import showinfo
 import pyttsx3
 import os
 
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()  # required for rendering Tkinter window
 
         self.title('Text to MP3')
-        self.geometry('830x680')
+        self.geometry('890x700')
 
         container = tk.Frame(self)
         container.pack(side = "top", fill = "both", expand = True)
@@ -50,8 +51,6 @@ class Main(tk.Frame):
         self.file_name = tk.StringVar()
         
         self.__create_widgets()
-        self.change_on_hover(self.save_button, "Save MP3", False)
-        self.change_on_hover(self.female_voice_checkbutton, "Female voice", True)
         self.rate_entry.bind("<<ComboboxSelected>>", self.update_rate)
 
 
@@ -59,19 +58,21 @@ class Main(tk.Frame):
     def change_on_hover(self, element, name, female):
         element.bind("<Enter>", func=lambda event, name=name: self.say(name, female))
     
-    def say(self, saying, female):
-
-        if female:
-            self.engine.setProperty('voice', self.voices[1].id)
-
+    def say(self, saying):
+        self.engine.setProperty('rate', int(self.controller.settings["rate"].get()))
         self.engine.say(saying)
         self.engine.runAndWait()
         self.engine.stop()
 
-        if self.controller.settings["female_voice"].get() == True:
-            self.engine.setProperty('voice', self.voices[1].id)
-        else:
-            self.engine.setProperty('voice', self.voices[0].id)
+
+    def try_it(self):
+            value = self.text_widget.get("1.0", tk.END)
+
+            if len(value) > 100:
+                self.say(value[:99])
+            else:
+                self.say(value)
+            
 
     
     def __create_widgets(self):
@@ -80,16 +81,16 @@ class Main(tk.Frame):
             self,
             wrap=tk.WORD,  # Wrap text at word boundaries
             height=18,
-            width=55,     
+            width=59,     
             font=('calibre', 20, 'normal'),
         )
         
-        self.text_widget.grid(row=0, column=0,columnspan=3)
+        self.text_widget.grid(row=0, column=0,columnspan=4)
 
 
         ttk.Label(
             self,
-            text="File Name:",
+            text="File Name  ",
             font=('calibre', 30, 'bold')
         ).grid(row=1, column=0)
 
@@ -107,9 +108,17 @@ class Main(tk.Frame):
         self.save_button = ttk.Button(
             self,
             text='Save',
-            command=self._text_to_speech
+            command=self._save_text_to_speech
         )
         self.save_button.grid(row=1, column=2, padx=(0, 0), ipadx=15, ipady=14)
+
+        self.try_it_button = ttk.Button(
+            self,
+            text="Try a few words",
+            command=self.try_it
+        )
+
+        self.try_it_button.grid(row=1, column=3, padx=(0, 0), ipadx=15, ipady=14)
 
         # Create input fields or widgets to modify settings
         ttk.Label(
@@ -124,11 +133,17 @@ class Main(tk.Frame):
         self.rate_entry.set("Normal")
         self.rate_entry.state(['readonly'])
 
-        self.female_voice_checkbutton = ttk.Checkbutton(self, text='Female Voice', variable=self.controller.settings['female_voice'])
+        self.female_voice_checkbutton = ttk.Checkbutton(self, text='Female Voice', variable=self.controller.settings['female_voice'], command=self.update_voice)
 
         # Add these widgets to the layout
         self.rate_entry.grid(row=2, column=1)
         self.female_voice_checkbutton.grid(row=2, column=2)
+    
+    def update_voice(self):
+        if self.controller.settings["female_voice"].get() == True:
+            self.engine.setProperty('voice', self.voices[1].id)
+        else:
+            self.engine.setProperty('voice', self.voices[0].id)
 
     def update_rate(self, event):
         rate_speeds = {
@@ -140,14 +155,7 @@ class Main(tk.Frame):
         selected_speed = self.rate_entry.get()
         self.controller.settings['rate'].set(rate_speeds[selected_speed])
 
-        if self.controller.settings["female_voice"].get() == True:
-            self.say(selected_speed, True)
-        else:
-            self.say(selected_speed, False)
-
-    
-
-    def _text_to_speech(self):
+    def _save_text_to_speech(self):
         value = self.text_widget.get("1.0", tk.END)
         location = filedialog.askdirectory()
         
@@ -157,32 +165,28 @@ class Main(tk.Frame):
             file = self.file_name.get()
 
         file_path = os.path.join(location,f'{file}.mp3')
-        
 
-        # Male / Female voice
-        
-        if self.controller.settings["female_voice"].get() == True:
-            self.engine.setProperty('voice', self.voices[1].id)
-        else:
-            self.engine.setProperty('voice', self.voices[0].id)
+        if file_path != "myFile.mp3":
+    
+            # Male / Female voice
+            
+            if self.controller.settings["female_voice"].get() == True:
+                self.engine.setProperty('voice', self.voices[1].id)
+            else:
+                self.engine.setProperty('voice', self.voices[0].id)
 
-        # Get rest of settings
-        self.engine.setProperty('rate', int(self.controller.settings["rate"].get()))
-        self.engine.save_to_file(value, file_path)
-        self.engine.runAndWait()
+            # Get rest of settings
+            self.engine.setProperty('rate', int(self.controller.settings["rate"].get()))
+            self.engine.save_to_file(value, file_path)
+            self.engine.runAndWait()
 
-        # Clear fields when done
-        self.text_widget.delete("1.0","end")
-        self.file_name_entry.delete(0,'end')
-
-        if self.controller.settings["female_voice"].get() == True:
-            self.say(f"Success, saved to {file_path}", True)
-        else:
-            self.say(f"Success, saved to {file_path}", False)
+            # Clear fields when done
+            self.text_widget.delete("1.0","end")
+            self.file_name_entry.delete(0,'end')
 
 
 
 if __name__ == "__main__":
     app = App()
-    app.resizable(False,False)
+    #app.resizable(False,False)
     app.mainloop()
